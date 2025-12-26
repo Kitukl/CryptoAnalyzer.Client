@@ -75,11 +75,10 @@ const Sidebar = () => {
         selectedKeys={[location.pathname]}
         onClick={({ key }) => navigate(key)}
         items={[
-          { key: '/', icon: <HomeOutlined />, label: 'Головна' },
           ...(!isAuth && !loading ? [
             { key: '/register', icon: <UserAddOutlined />, label: 'Реєстрація' },
             { key: '/login', icon: <LoginOutlined />, label: 'Вхід' },
-          ] : []),
+          ] : [{ key: '/', icon: <HomeOutlined />, label: 'Головна' }]),
         ]}
       />
 
@@ -116,11 +115,7 @@ const Sidebar = () => {
             </Button>
           </div>
         ) : (
-          <div className="text-center py-2">
-            <Text type="secondary" className="text-[11px] uppercase tracking-widest opacity-50 text-white">
-              Гість
-            </Text>
-          </div>
+          <div/>
         )}
       </div>
     </motion.div>

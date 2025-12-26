@@ -23,26 +23,15 @@ const LoginPage = () => {
 
       if (response.status === 200) {
         const { refreshToken } = response.data;
-
-        // 1. Зберігаємо рефреш-токен
         localStorage.setItem('refreshToken', refreshToken);
-        
-        // 2. Сигналізуємо Sidebar та іншим компонентам про оновлення
         window.dispatchEvent(new Event("storage"));
-        
         message.success('Вхід успішний!');
-        
-        // 3. Переходимо на головну (без перезавантаження сторінки)
         navigate('/');
       }
     } catch (error: any) {
       const errorMsg = error.response?.data || 'Помилка авторизації';
       message.error(errorMsg);
-      
-      form.setFields([{
-        name: 'password',
-        errors: [errorMsg]
-      }]);
+      form.setFields([{ name: 'password', errors: [errorMsg] }]);
     }
   };
 
@@ -74,6 +63,13 @@ const LoginPage = () => {
           >
             <Input.Password prefix={<LockOutlined className="text-gray-500" />} placeholder="********" size="large" />
           </Form.Item>
+
+          {/* ОСЬ ВОНА, ПОВЕРНУВ */}
+          <div className="flex justify-end mb-6 -mt-2">
+            <Link to="/forgot-password" style={{ color: '#60a5fa' }} className="hover:underline text-sm">
+              Забули пароль?
+            </Link>
+          </div>
 
           <Form.Item>
             <Button type="primary" htmlType="submit" size="large" block className="bg-blue-600 font-semibold">

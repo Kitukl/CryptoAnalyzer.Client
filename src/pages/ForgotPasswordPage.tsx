@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Form, Input, Button, Card, Typography, Statistic, message, Space } from 'antd';
-import { MailOutlined, LockOutlined, KeyOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { Form, Input, Button, Card, Typography, Statistic, message } from 'antd';
+import { MailOutlined, LockOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/axios';
@@ -9,19 +9,51 @@ const { Title, Text } = Typography;
 const { Countdown } = Statistic;
 
 const ForgotPasswordPage = () => {
-  const [step, setStep] = useState(1); // 1: Email, 2: Reset
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [deadline, setDeadline] = useState(0);
   const navigate = useNavigate();
 
-  // Запит на отримання коду
+  // 1. При завантаженні сторінки перевіряємо збережений стан
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('reset_email');
+    const savedStep = localStorage.getItem('reset_step');
+    const savedDeadline = localStorage.getItem('reset_deadline');
+
+    if (savedEmail && savedStep === '2' && savedDeadline) {
+      const remainingTime = parseInt(savedDeadline) - Date.now();
+      if (remainingTime > 0) {
+        setEmail(savedEmail);
+        setStep(2);
+        setDeadline(parseInt(savedDeadline));
+      } else {
+        // Якщо час вийшов, чистимо пам'ять
+        clearResetStorage();
+      }
+    }
+  }, []);
+
+  const clearResetStorage = () => {
+    localStorage.removeItem('reset_email');
+    localStorage.removeItem('reset_step');
+    localStorage.removeItem('reset_deadline');
+  };
+
   const handleSendCode = async (values: { email: string }) => {
     setLoading(true);
     try {
       await api.post('/Auth/forgot-password', { email: values.email });
+      
+      const newDeadline = Date.now() + 1000 * 60 * 5;
+      
+      // 2. Зберігаємо дані в localStorage
+      localStorage.setItem('reset_email', values.email);
+      localStorage.setItem('reset_step', '2');
+      localStorage.setItem('reset_deadline', newDeadline.toString());
+
       setEmail(values.email);
-      setDeadline(Date.now() + 1000 * 60 * 5); // Таймер на 5 хвилин
+      setDeadline(newDeadline);
       setStep(2);
       message.success('Код відновлення надіслано на вашу пошту!');
     } catch (error: any) {
@@ -31,7 +63,6 @@ const ForgotPasswordPage = () => {
     }
   };
 
-  // Скидання пароля з кодом
   const handleResetPassword = async (values: any) => {
     setLoading(true);
     try {
@@ -43,13 +74,21 @@ const ForgotPasswordPage = () => {
         }
       };
       await api.post('/Auth/reset-password', payload);
-      message.success('Пароль успішно змінено! Тепер ви можете увійти.');
+      message.success('Пароль успішно змінено!');
+      
+      // 3. Обов'язково чистимо після успіху
+      clearResetStorage();
       navigate('/login');
     } catch (error: any) {
       message.error(error.response?.data || 'Невірний код або помилка сервера');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleChangeEmail = () => {
+    clearResetStorage();
+    setStep(1);
   };
 
   return (
@@ -74,10 +113,10 @@ const ForgotPasswordPage = () => {
                   label="Електронна пошта"
                   rules={[{ required: true, type: 'email', message: 'Введіть коректний email!' }]}
                 >
-                  <Input prefix={<MailOutlined />} size="large" placeholder="example@mail.com" />
+                  <Input prefix={<MailOutlined />} size="large" placeholder="example@mail.com" className="bg-[#1c1c1c] border-gray-700 text-white" />
                 </Form.Item>
 
-                <Button type="primary" htmlType="submit" block size="large" loading={loading} className="bg-blue-600 h-12">
+                <Button type="primary" htmlType="submit" block size="large" loading={loading} className="bg-blue-600 h-12 font-bold">
                   Надіслати код
                 </Button>
                 
@@ -97,7 +136,7 @@ const ForgotPasswordPage = () => {
             >
               <div className="text-center mb-8">
                 <Title level={2} style={{ color: '#60a5fa' }}>Скидання пароля</Title>
-                <Text type="secondary">Ми відправили 6-значний код на <br/> <b>{email}</b></Text>
+                <Text type="secondary">Ми відправили код на <b>{email}</b></Text>
               </div>
 
               <Form layout="vertical" onFinish={handleResetPassword}>
@@ -114,7 +153,7 @@ const ForgotPasswordPage = () => {
                   label="Новий пароль"
                   rules={[{ required: true, min: 6, message: 'Мінімум 6 символів!' }]}
                 >
-                  <Input.Password prefix={<LockOutlined />} size="large" placeholder="Новий пароль" />
+                  <Input.Password prefix={<LockOutlined />} size="large" placeholder="Новий пароль" className="bg-[#1c1c1c] border-gray-700 text-white" />
                 </Form.Item>
 
                 <Form.Item
@@ -131,19 +170,24 @@ const ForgotPasswordPage = () => {
                     }),
                   ]}
                 >
-                  <Input.Password prefix={<LockOutlined />} size="large" placeholder="Повторіть пароль" />
+                  <Input.Password prefix={<LockOutlined />} size="large" placeholder="Повторіть пароль" className="bg-[#1c1c1c] border-gray-700 text-white" />
                 </Form.Item>
 
                 <div className="flex justify-between items-center mb-6 px-1">
                   <Text type="secondary">Код дійсний:</Text>
-                  <Countdown value={deadline} format="mm:ss" valueStyle={{ color: '#faad14', fontSize: '16px' }} />
+                  <Countdown 
+                    value={deadline} 
+                    format="mm:ss" 
+                    valueStyle={{ color: '#faad14', fontSize: '16px' }} 
+                    onFinish={handleChangeEmail} 
+                  />
                 </div>
 
-                <Button type="primary" htmlType="submit" block size="large" loading={loading} className="bg-blue-600 h-12 font-semibold">
+                <Button type="primary" htmlType="submit" block size="large" loading={loading} className="bg-blue-600 h-12 font-bold">
                   Змінити пароль
                 </Button>
 
-                <Button type="link" block className="mt-2 text-gray-500" onClick={() => setStep(1)}>
+                <Button type="link" block className="mt-2 text-gray-500" onClick={handleChangeEmail}>
                   Змінити Email
                 </Button>
               </Form>

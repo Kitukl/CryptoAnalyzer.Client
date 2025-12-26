@@ -19,11 +19,11 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/confirm-email" element={<ConfirmEmailPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/" element={<HomePage />} />
               <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-              <Route path="/confirm-email" element={<ConfirmEmailPage />} />
             </Route>
           </Routes>
         </main>
