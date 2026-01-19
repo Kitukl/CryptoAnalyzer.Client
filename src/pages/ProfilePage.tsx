@@ -14,10 +14,13 @@ const ProfilePage = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [showFullEmail, setShowFullEmail] = useState(false); // Стан для відображення пошти
+  const [showFullEmail, setShowFullEmail] = useState(false);
   
+  // Поля форми
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProfile();
@@ -29,6 +32,8 @@ const ProfilePage = () => {
       setUser(res.data);
       setUserName(res.data.userName);
       setEmail(res.data.email);
+      setAvatarFile(null);
+      setPreviewUrl(null);
     } catch (err) {
       message.error("Помилка завантаження даних");
     } finally {
@@ -36,7 +41,6 @@ const ProfilePage = () => {
     }
   };
 
-  // Функція для приховування символів у пошті
   const maskEmail = (mail: string) => {
     if (!mail) return "";
     const [name, domain] = mail.split('@');
@@ -47,15 +51,56 @@ const ProfilePage = () => {
   const handleSave = async () => {
     setLoading(true);
     try {
-      // Тут буде твій PUT запит на бек
+      const formData = new FormData();
+      
+      formData.append('request.CurrentEmail', user.email);
+      formData.append('request.UserName', userName);
+      formData.append('request.NewEmail', email);
+      
+      if (avatarFile) {
+        formData.append('request.AvatarUrl', avatarFile);
+      }
+
+      await api.put('/Auth', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
       message.success("Зміни успішно збережено");
       setIsEditing(false);
-      await fetchProfile();
-    } catch (err) {
-      message.error("Не вдалося зберегти зміни");
+      await fetchProfile(); 
+    } catch (err: any) {
+      const errorText = err.response?.data?.Errors?.[0] || "Не вдалося зберегти зміни";
+      message.error(errorText);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBeforeUpload = (file: File) => {
+    const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png';
+    if (!isJpgOrPng) {
+      message.error('Можна завантажувати лише JPG/PNG файли!');
+      return Upload.LIST_IGNORE;
+    }
+    const isLt2M = file.size / 1024 / 1024 < 2;
+    if (!isLt2M) {
+      message.error('Зображення має бути меншим за 2MB!');
+      return Upload.LIST_IGNORE;
+    }
+
+    setAvatarFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    return false; 
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setUserName(user?.userName);
+    setEmail(user?.email);
+    setAvatarFile(null);
+    setPreviewUrl(null);
   };
 
   if (loading && !user) return (
@@ -82,7 +127,7 @@ const ProfilePage = () => {
             <Button 
               className="absolute top-4 left-3 bg-black/30 border-none text-white hover:bg-black/50 backdrop-blur-md flex items-center justify-center"
               icon={isEditing ? <CloseOutlined /> : <EditOutlined />}
-              onClick={() => setIsEditing(!isEditing)}
+              onClick={isEditing ? handleCancel : () => setIsEditing(true)}
               shape="circle"
               size="large"
             />
@@ -94,13 +139,17 @@ const ProfilePage = () => {
                 <div className="relative group">
                    <Avatar 
                     size={130} 
-                    src={user?.avatarUrl} 
-                    icon={<UserOutlined style={{ color: '#ffffff', opacity: 1 }} />} 
-                    className="bg-blue-600 flex items-center justify-center border-none shadow-2xl"
+                    src={previewUrl || user?.avatarUrl} 
+                    icon={<UserOutlined style={{ color: '#ffffff' }} />} 
+                    className="bg-blue-600 flex items-center justify-center border-4 border-[#141414] shadow-2xl"
                   />
                   {isEditing && (
-                    <Upload showUploadList={false} className="absolute inset-0">
-                      <div className="w-[130px] h-[130px] rounded-full bg-black/50 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity border-[6px] border-transparent">
+                    <Upload 
+                      showUploadList={false} 
+                      beforeUpload={handleBeforeUpload}
+                      className="absolute inset-0"
+                    >
+                      <div className="w-[130px] h-[130px] rounded-full bg-black/50 flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity">
                         <CameraOutlined className="text-white text-3xl" />
                       </div>
                     </Upload>
@@ -120,7 +169,6 @@ const ProfilePage = () => {
                   <div className="mb-8">
                     <Title level={1} className="!text-white !mb-1 !mt-2">{user?.userName}</Title>
                     
-                    {/* Секція з емейлом та очком */}
                     <Space size="middle" className="mb-4">
                       <Text className="text-blue-400 font-medium text-lg">
                         {showFullEmail ? user?.email : maskEmail(user?.email)}
@@ -181,6 +229,7 @@ const ProfilePage = () => {
                       type="primary" 
                       size="large" 
                       block 
+                      loading={loading}
                       icon={<SaveOutlined />} 
                       onClick={handleSave}
                       className="bg-blue-600 rounded-xl h-12 border-none shadow-lg shadow-blue-600/20"
@@ -190,7 +239,7 @@ const ProfilePage = () => {
                     <Button 
                       size="large" 
                       block 
-                      onClick={() => setIsEditing(false)}
+                      onClick={handleCancel}
                       className="rounded-xl h-12 border-gray-700 bg-transparent text-gray-400 hover:text-white"
                     >
                       Скасувати
