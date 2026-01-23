@@ -3,10 +3,14 @@ import { Card, Avatar, Typography, Button, Input, Spin, message, Upload, Tag, Sp
 import { 
   UserOutlined, MailOutlined, CameraOutlined, 
   SaveOutlined, EditOutlined, CloseOutlined,
-  CheckCircleFilled, EyeOutlined, EyeInvisibleOutlined
+  CheckCircleFilled, EyeOutlined, EyeInvisibleOutlined,
+  PlusOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
+import CreateHoldingModal from '../components/CreateComponentModal'
+import axios from 'axios'
 
 const { Title, Text } = Typography;
 
@@ -15,8 +19,8 @@ const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [showFullEmail, setShowFullEmail] = useState(false);
-  
-  // Поля форми
+  const [holdings, setHoldings] = useState<any[]>([]);
+  const [isHoldingModalVisible, setIsHoldingModalVisible] = useState(false);
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -38,6 +42,31 @@ const ProfilePage = () => {
       message.error("Помилка завантаження даних");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchHoldings = async () => {
+    try {
+      const res = await axios.get('http://localhost:5094/api/Holdings');
+      setHoldings(res.data);
+    } catch (err) {
+      console.error("Помилка завантаження холдингів");
+    }
+  };
+
+  // Оновлюємо useEffect
+  useEffect(() => {
+    fetchProfile();
+    fetchHoldings(); // Додаємо цей виклик
+  }, []);
+
+  const handleDeleteHolding = async (id: string) => {
+    try {
+      await axios.delete(`http://localhost:5094/api/Holdings/${id}`);
+      message.success("Актив видалено");
+      fetchHoldings();
+    } catch (err) {
+      message.error("Не вдалося видалити актив");
     }
   };
 
@@ -251,6 +280,87 @@ const ProfilePage = () => {
           </div>
         </Card>
       </motion.div>
+      <motion.div 
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.2 }}
+  className="max-w-3xl mx-auto z-10 relative mt-8"
+>
+  <div className="flex justify-between items-center mb-6 px-2">
+    <Title level={3} className="!text-white !mb-0">Мої активи</Title>
+    <Button 
+      type="primary" 
+      icon={<PlusOutlined />} 
+      onClick={() => setIsHoldingModalVisible(true)}
+      className="bg-blue-600 rounded-xl border-none"
+    >
+      Додати
+    </Button>
+  </div>
+
+  <div className="grid grid-cols-1 gap-4">
+    {holdings.length === 0 ? (
+      <div className="bg-[#141414]/60 border border-dashed border-gray-800 rounded-3xl p-10 text-center">
+        <Text className="text-gray-500">У вас поки немає доданих холдингів</Text>
+      </div>
+    ) : (
+      holdings.map((holding) => (
+        <Card 
+          key={holding.id}
+          className="bg-[#141414]/90 border-gray-800 rounded-2xl hover:border-blue-500/50 transition-colors"
+          bodyStyle={{ padding: '16px 24px' }}
+        >
+    <div className="flex justify-between items-center">
+      <div className="flex-1">
+        <div className="flex items-center gap-2 mb-1">
+          <Text className="text-white font-bold text-lg block">
+            {holding.coin?.name}
+          </Text>
+          <Tag className="bg-gray-800 border-none text-gray-400 rounded-md uppercase text-[10px]">
+            {holding.coin?.symbol}
+          </Tag>
+        </div>
+        
+        <Space size="large" className="text-sm">
+          <div>
+            <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider">Середня ціна</span>
+            <span className="text-blue-400 font-mono">${holding.averagePrice < 0.01 ? holding.averagePrice.toFixed(8) : holding.averagePrice.toLocaleString()}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider">Поточна ціна</span>
+            <span className="text-blue-400 font-mono">${holding.currentPrice < 0.01 ? holding.currentPrice.toFixed(8) : holding.currentPrice.toLocaleString()}</span>
+          </div>
+          <div>
+            <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider">Прибуток</span>
+            <span className={`font-mono font-bold ${holding.currentProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {holding.currentProfit >= 0 ? '+' : ''}{holding.currentProfit?.toFixed(2)}%
+            </span>
+          </div>
+        </Space>
+      </div>
+      
+      <Button 
+        type="text" 
+        danger 
+        icon={<DeleteOutlined />} 
+        onClick={() => handleDeleteHolding(holding.id)}
+        className="hover:bg-red-500/10 rounded-lg ml-4"
+      />
+    </div>
+  </Card>
+)))}
+  </div>
+</motion.div>
+
+{/* Модалка створення */}
+<CreateHoldingModal 
+  visible={isHoldingModalVisible}
+  onCancel={() => setIsHoldingModalVisible(false)}
+  onSuccess={() => {
+    setIsHoldingModalVisible(false);
+    fetchHoldings();
+  }}
+/>
     </div>
   );
 };
