@@ -63,7 +63,7 @@ const Sidebar = () => {
     <motion.div 
       initial={{ x: -100, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      className="w-72 h-screen bg-[#001529] flex flex-col shadow-xl"
+      className="fixed top-0 left-0 z-50 w-72 h-screen bg-[#001529] flex flex-col shadow-xl border-r border-gray-800"
     >
       <div className="p-6 text-xl font-bold text-blue-400 italic">
         CRYPTO<span className="text-white">ANALYZER</span>
@@ -74,6 +74,7 @@ const Sidebar = () => {
         mode="inline"
         selectedKeys={[location.pathname]}
         onClick={({ key }) => navigate(key)}
+        className="flex-grow border-none"
         items={[
           ...(!isAuth && !loading ? [
             { key: '/register', icon: <UserAddOutlined />, label: 'Реєстрація' },

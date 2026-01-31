@@ -19,17 +19,14 @@ const ProfilePage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [showFullEmail, setShowFullEmail] = useState(false);
   
-  // Холдинги та фільтрація
   const [holdings, setHoldings] = useState<any[]>([]);
   const [searchText, setSearchText] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 4;
 
-  // Модалка
   const [isHoldingModalVisible, setIsHoldingModalVisible] = useState(false);
   const [editingHolding, setEditingHolding] = useState<any>(null);
 
-  // Профільні дані
   const [userName, setUserName] = useState('');
   const [email, setEmail] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -62,7 +59,6 @@ const ProfilePage = () => {
     }
   };
 
-  // --- ЛОГІКА ПОШУКУ ТА ПАГІНАЦІЇ ---
   const filteredHoldings = useMemo(() => {
     return holdings.filter(h => 
       h.coin?.name?.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -75,7 +71,6 @@ const ProfilePage = () => {
     return filteredHoldings.slice(start, start + pageSize);
   }, [filteredHoldings, currentPage]);
 
-  // --- ФУНКЦІЇ ДІЙ ---
   const handleEditClick = (holding: any) => {
     setEditingHolding(holding);
     setIsHoldingModalVisible(true);
@@ -269,28 +264,52 @@ const ProfilePage = () => {
                       <Tag className="bg-gray-800 border-none text-gray-400 rounded-md uppercase text-[10px]">{holding.coin?.symbol}</Tag>
                     </div>
                     
-                    <Space size="large" className="text-sm flex-wrap">
+                    <div className="flex flex-col gap-4 p-4 rounded-xl bg-slate-900/20 border border-slate-800/50 text-sm">
+                    <div className="flex items-center justify-between border-b border-slate-800/50 pb-3">
                       <div>
-                        <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider">Вкладено</span>
-                        <span className="text-blue-400 font-mono">{holding.quantity.toLocaleString()}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider">Ціна закупки</span>
-                        <span className="text-blue-400 font-mono">${holding.pricePerUnit < 0.01 ? holding.pricePerUnit.toFixed(6) : holding.pricePerUnit.toLocaleString()}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider">Поточна ціна</span>
-                        <span className="text-blue-400 font-mono">${holding.currentPrice < 0.01 ? holding.currentPrice.toFixed(6) : holding.currentPrice.toLocaleString()}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider">Профіт</span>
-                        <span className={`font-mono font-bold ${holding.currentProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {holding.currentProfit >= 0 ? '+' : ''}{holding.currentProfit?.toFixed(2)}%
+                        <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider mb-1">Кількість активів</span>
+                        <span className="text-blue-400 font-mono text-lg font-semibold tracking-tight">
+                          ${holding.quantity.toLocaleString()} <span className="text-xs text-slate-500 uppercase">{holding.symbol}</span>
                         </span>
                       </div>
-                    </Space>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 py-1">
+                      <div>
+                        <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider mb-1 text-center">Закупка</span>
+                        <span className="text-blue-300 font-mono block text-center">
+                          ${holding.pricePerUnit < 0.01 ? holding.pricePerUnit.toFixed(6) : holding.pricePerUnit.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="border-x border-slate-800/50">
+                        <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider mb-1 text-center">Поточна</span>
+                        <span className="text-white font-mono block text-center font-bold">
+                          ${holding.currentPrice < 0.01 ? holding.currentPrice.toFixed(6) : holding.currentPrice.toLocaleString()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-purple-400/80 block text-[10px] uppercase font-bold tracking-wider mb-1 text-center">Prophet Forecast</span>
+                        <span className="text-purple-400 font-mono block text-center">
+                          ${holding.predictedPrice < 0.01 ? holding.predictedPrice.toFixed(6) : holding.predictedPrice.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-3 border-t border-slate-800/50">
+                      <div className="flex-1 bg-slate-800/30 p-2 rounded-lg text-center border border-slate-700/30">
+                        <span className="text-gray-500 block text-[9px] uppercase font-bold mb-1">Поточний профіт</span>
+                        <span className={`font-mono text-base font-bold ${holding.currentProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                          {holding.currentProfit >= 0 ? '▲' : '▼'} {Math.abs(holding.currentProfit)?.toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="flex-1 bg-purple-900/10 p-2 rounded-lg text-center border border-purple-500/20">
+                        <span className="text-purple-400/60 block text-[9px] uppercase font-bold mb-1">Очікуваний профіт</span>
+                        <span className={`font-mono text-base font-bold ${holding.predictedProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {holding.predictedProfit >= 0 ? '▲' : '▼'} {Math.abs(holding.predictedProfit)?.toFixed(2)}%
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  
+                  </div>
+    
                   <Space>
                     <Button 
                       type="text" 
@@ -311,7 +330,6 @@ const ProfilePage = () => {
           )}
         </div>
 
-        {/* ПАГІНАЦІЯ */}
         {filteredHoldings.length > pageSize && (
           <div className="flex justify-center mt-8">
             <Pagination 
@@ -326,10 +344,9 @@ const ProfilePage = () => {
         )}
       </motion.div>
 
-      {/* МОДАЛКА (Створення / Редагування) */}
       <CreateHoldingModal 
         visible={isHoldingModalVisible}
-        initialData={editingHolding} // Передаємо дані для редагування
+        initialData={editingHolding} 
         onCancel={() => {
           setIsHoldingModalVisible(false);
           setEditingHolding(null);
@@ -341,7 +358,6 @@ const ProfilePage = () => {
         }}
       />
 
-      {/* Стилі для пагінації (темна тема) */}
       <style>{`
         .custom-pagination .ant-pagination-item a { color: #6b7280; }
         .custom-pagination .ant-pagination-item-active { background: transparent; border-color: #2563eb; }

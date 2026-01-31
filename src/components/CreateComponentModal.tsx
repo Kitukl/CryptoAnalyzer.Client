@@ -44,13 +44,11 @@ const CreateHoldingModal: React.FC<CreateHoldingModalProps> = ({
     []
   );
 
-  // Заповнення форми при редагуванні
   useEffect(() => {
     if (visible) {
       if (initialData) {
         form.setFieldsValue({
-          // Мапимо дані з об'єкта холдингу у поля форми
-          coinId: initialData.coinId, 
+          coinName: initialData.coinName, 
           quantity: initialData.quantity,
           pricePerUnit: initialData.pricePerUnit
         });
@@ -62,37 +60,36 @@ const CreateHoldingModal: React.FC<CreateHoldingModalProps> = ({
   }, [visible, initialData, form]);
 
   const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      setSubmitting(true);
+  try {
+    const values = await form.validateFields();
+    setSubmitting(true);
 
-      // ВИПРАВЛЕНО: Ключі в об'єкті мають збігатися з UpdateHoldingCommand в C#
-      const payload = {
-        coinName: values.coinId,      // Мапимо вибраний ID у coinName для бекенда
-        pricePerUnit: values.pricePerUnit,
-        quantity: values.quantity
-      };
+    const payload = {
+      CoinName: values.coinName, 
+      Quantity: values.quantity,
+      PricePerUnit: values.pricePerUnit
+    };
 
-      if (isEditing) {
-        // PUT запит для оновлення
-        await axios.put(`http://localhost:5094/api/Holdings/${initialData.id}`, payload);
-        message.success("Актив оновлено");
-      } else {
-        // POST запит для створення (переконайся, що CreateHoldingCommand теж чекає такі назви)
-        await axios.post('http://localhost:5094/api/Holdings', payload);
-        message.success("Актив додано");
-      }
-
-      form.resetFields();
-      onSuccess();
-    } catch (err: any) {
-      // Виводимо детальну помилку з сервера, якщо вона є
-      const errorMsg = err.response?.data?.errors?.CoinName?.[0] || "Помилка збереження";
-      message.error(errorMsg);
-    } finally {
-      setSubmitting(false);
+    if (isEditing) {
+      await axios.put(`http://localhost:5094/api/Holdings/${initialData.id}`, payload);
+      message.success("Актив оновлено");
+    } else {
+      await axios.post('http://localhost:5094/api/Holdings', payload);
+      message.success("Актив додано");
     }
-  };
+
+    form.resetFields();
+    onSuccess();
+  } catch (err: any) {
+    // Вивід детальної помилки валідації від .NET
+    const errorMsg = err.response?.data?.errors 
+      ? Object.values(err.response.data.errors).flat()[0] 
+      : "Помилка збереження";
+    message.error(errorMsg as string);
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   return (
     <Modal
@@ -111,7 +108,7 @@ const CreateHoldingModal: React.FC<CreateHoldingModalProps> = ({
     >
       <Form form={form} layout="vertical" className="pt-4">
         <Form.Item
-          name="coinId"
+          name="coinName"
           label={<span className="text-gray-400">Монета</span>}
           rules={[{ required: true, message: 'Будь ласка, виберіть монету' }]}
         >
@@ -151,7 +148,7 @@ const CreateHoldingModal: React.FC<CreateHoldingModalProps> = ({
 
         <Form.Item
           name="quantity"
-          label={<span className="text-gray-400">Кількість монет</span>}
+          label={<span className="text-gray-400">Кількість затрачених коштів</span>}
           rules={[{ required: true, message: 'Введіть кількість' }]}
         >
           <InputNumber 
