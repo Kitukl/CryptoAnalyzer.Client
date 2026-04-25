@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Menu, Avatar, Button, Typography, Spin } from 'antd';
 import { 
   HomeOutlined, UserAddOutlined, LoginOutlined, 
-  LogoutOutlined, UserOutlined 
+  LogoutOutlined, UserOutlined, HistoryOutlined 
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -39,7 +39,7 @@ const Sidebar = () => {
   }, []);
 
   useEffect(() => {
-    if (!userData && (location.pathname === '/' || location.pathname === '/profile')) {
+    if (!userData && (location.pathname === '/' || location.pathname === '/profile' || location.pathname === '/history')) {
        loadProfile();
     }
   }, [location.pathname, userData]);
@@ -79,7 +79,10 @@ const Sidebar = () => {
           ...(!isAuth && !loading ? [
             { key: '/register', icon: <UserAddOutlined />, label: 'Реєстрація' },
             { key: '/login', icon: <LoginOutlined />, label: 'Вхід' },
-          ] : [{ key: '/', icon: <HomeOutlined />, label: 'Головна' }]),
+          ] : [
+            { key: '/', icon: <HomeOutlined />, label: 'Головна' },
+            { key: '/history', icon: <HistoryOutlined />, label: 'Попередні прогнози' },
+          ]),
         ]}
       />
 
@@ -110,13 +113,13 @@ const Sidebar = () => {
               danger 
               icon={<LogoutOutlined />} 
               onClick={handleLogout} 
-              className="w-full text-left flex items-center gap-2 hover:bg-red-950/30 text-red-400"
+              className="w-full text-left flex items-center gap-2 hover:bg-red-950/30 text-red-400 font-bold"
             >
               Вийти
             </Button>
           </div>
         ) : (
-          <div/>
+          <div className="text-center text-gray-500 text-xs">Авторизуйтесь для доступу</div>
         )}
       </div>
     </motion.div>

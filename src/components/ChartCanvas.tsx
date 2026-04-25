@@ -28,7 +28,6 @@ const ChartCanvas = forwardRef((props: ChartProps, ref) => {
     }
   }));
 
-  // Обчислюємо ліміти для осей
   const chartLimits = useMemo(() => {
     if (!prices.length) return null;
     
@@ -48,14 +47,13 @@ const ChartCanvas = forwardRef((props: ChartProps, ref) => {
     };
   }, [prices, calcData]);
 
-  // Підготовка даних для графіка
   const data = useMemo(() => {
     const mainColor = '#6366f1'; 
     const forecastColor = '#fb923c'; 
 
     const datasets: any[] = [
       {
-        label: 'Історія',
+        label: 'Реальний ринок',
         data: prices.map((p: any) => ({ x: p[0], y: p[1] })),
         borderColor: mainColor,
         borderWidth: 2,
@@ -75,9 +73,20 @@ const ChartCanvas = forwardRef((props: ChartProps, ref) => {
     ];
 
     if (calcData?.predictions?.length > 0 && prices.length > 0) {
-      const lastHistoryPoint = prices[prices.length - 1];
+      // ФІКС: Шукаємо точку в історії, з якої треба почати прогноз
+      const firstPredTime = new Date(calcData.predictions[0].date).getTime();
+      let anchorPoint = prices[prices.length - 1]; // За замовчуванням остання
+      
+      // Шукаємо найближчу точку в минулому до початку прогнозу
+      for (let i = prices.length - 1; i >= 0; i--) {
+        if (prices[i][0] <= firstPredTime) {
+          anchorPoint = prices[i];
+          break;
+        }
+      }
+
       const forecastPoints = [
-        { x: lastHistoryPoint[0], y: lastHistoryPoint[1] },
+        { x: anchorPoint[0], y: anchorPoint[1] },
         ...calcData.predictions.map((p: any) => ({
           x: new Date(p.date).getTime(),
           y: p.price
@@ -93,23 +102,13 @@ const ChartCanvas = forwardRef((props: ChartProps, ref) => {
         tension: 0.4,
         pointRadius: (ctx: any) => ctx.dataIndex === 0 ? 0 : 3,
         pointBackgroundColor: forecastColor,
-        fill: true,
-        backgroundColor: (context: any) => {
-          const chart = context.chart;
-          const { ctx, chartArea } = chart;
-          if (!chartArea) return 'transparent';
-          const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-          gradient.addColorStop(0, 'rgba(251, 146, 60, 0.15)');
-          gradient.addColorStop(1, 'rgba(251, 146, 60, 0)');
-          return gradient;
-        },
+        fill: false, // НЕ заливаємо фон під прогнозом для чистоти
       });
     }
 
     return { datasets };
   }, [prices, calcData]);
 
-  // Безпечні значення для TypeScript
   const xMin = chartLimits?.x.min ?? 0;
   const xMax = chartLimits?.x.max ?? 0;
   const yMin = chartLimits?.y.min ?? 0;
@@ -121,18 +120,10 @@ const ChartCanvas = forwardRef((props: ChartProps, ref) => {
     plugins: {
       zoom: {
         limits: {
-          x: { 
-            min: xMin, 
-            max: xMax, 
-            minRange: (xMax - xMin) / 10 
-          },
+          x: { min: xMin, max: xMax, minRange: (xMax - xMin) / 10 },
           y: { min: yMin, max: yMax }
         },
-        zoom: {
-          wheel: { enabled: true },
-          pinch: { enabled: true },
-          mode: 'x',
-        },
+        zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' },
         pan: { enabled: true, mode: 'x' }
       },
       legend: { display: false },

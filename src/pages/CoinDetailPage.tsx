@@ -14,8 +14,8 @@ const CoinDetailPage: React.FC = () => {
   const chartRef = useRef<{ resetZoom: () => void } | null>(null);
 
   const [data, setData] = useState<any>(null);
-  const [fullHistory, setFullHistory] = useState<any[]>([]); // Зберігаємо повні 90 днів
-  const [history, setHistory] = useState<any[]>([]);         // Обрізані дані для графіка
+  const [fullHistory, setFullHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   const [prediction, setPrediction] = useState<any>(null);
   
   const [daysToPredict, setDaysToPredict] = useState(7);
@@ -23,7 +23,6 @@ const CoinDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isPredicting, setIsPredicting] = useState(false);
 
-  // Функція для фільтрації даних на основі вибраної глибини (historyDays)
   const sliceHistoryData = (allPrices: any[], days: number) => {
     if (!allPrices.length) return [];
     const now = Date.now();
@@ -32,7 +31,6 @@ const CoinDetailPage: React.FC = () => {
   };
 
   const loadBaseData = async () => {
-    // Кеш тепер спільний для всіх значень глибини, бо ми завжди тягнемо 90 днів
     const cacheKey = `coin_full_90d_cache_${coinId}`;
     const cachedData = localStorage.getItem(cacheKey);
 
@@ -51,7 +49,6 @@ const CoinDetailPage: React.FC = () => {
       setLoading(true);
       const [info, hist] = await Promise.all([
         axios.get(`https://api.coingecko.com/api/v3/coins/${coinId}`),
-        // ЗАВЖДИ запитуємо максимум (90 днів)
         axios.get(`https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=90`)
       ]);
 
@@ -83,16 +80,14 @@ const CoinDetailPage: React.FC = () => {
     }
   };
 
-  // Завантажуємо дані лише один раз при зміні монети
   useEffect(() => { 
     loadBaseData();
   }, [coinId]);
 
-  // При зміні повзунка historyDays просто ріжемо масив у пам'яті
   useEffect(() => {
     if (fullHistory.length > 0) {
       setHistory(sliceHistoryData(fullHistory, historyDays));
-      setPrediction(null); // Скидаємо прогноз, бо він неактуальний для нової глибини
+      setPrediction(null);
     }
   }, [historyDays, fullHistory]);
 
@@ -104,6 +99,7 @@ const CoinDetailPage: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-10">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <Link to="/" className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors group font-bold">
           <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
@@ -118,6 +114,7 @@ const CoinDetailPage: React.FC = () => {
         </button>
       </div>
 
+      {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-[#161B22] border border-gray-800 rounded-[2.5rem] p-10 shadow-2xl relative">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
@@ -125,7 +122,9 @@ const CoinDetailPage: React.FC = () => {
               <img src={data?.image?.large} className="w-20 h-20 drop-shadow-[0_0_20px_rgba(99,102,241,0.2)]" alt="" />
               <div>
                 <h1 className="text-5xl font-black tracking-tighter uppercase italic">{data?.name}</h1>
-                <p className="text-indigo-400 font-mono text-2xl mt-1 font-bold">${data?.market_data?.current_price?.usd?.toLocaleString()}</p>
+                <p className="text-indigo-400 font-mono text-2xl mt-1 font-bold">
+                  ${data?.market_data?.current_price?.usd?.toLocaleString()}
+                </p>
               </div>
             </div>
             <div className="text-right">
@@ -141,6 +140,7 @@ const CoinDetailPage: React.FC = () => {
           </div>
         </div>
 
+        {/* AI Control Panel */}
         <div className="bg-[#161B22] border border-gray-800 rounded-[2.5rem] p-10 flex flex-col shadow-2xl">
           <div className="flex-1 space-y-10">
             <div className="flex items-center gap-4">
@@ -180,16 +180,77 @@ const CoinDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Prediction Table Section */}
+      {prediction && prediction.predictions && (
+        <div className="bg-[#161B22] border border-gray-800 rounded-[2.5rem] p-10 shadow-2xl animate-in slide-in-from-bottom duration-700">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="p-4 bg-green-500/10 rounded-2xl text-green-400">
+              <TrendingUp className="w-7 h-7" />
+            </div>
+            <h2 className="text-xl font-black italic uppercase">Результати AI прогнозування</h2>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-separate border-spacing-y-3">
+              <thead>
+                <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                  <th className="px-6 py-2">Крок</th>
+                  <th className="px-6 py-2">Очікувана дата</th>
+                  <th className="px-6 py-2">Прогноз ціни (USD)</th>
+                  <th className="px-6 py-2 text-right">Тренд / Зміна</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono font-bold text-sm">
+                {prediction.predictions.map((item: any, index: number) => {
+                  const currentPriceValue = data?.market_data?.current_price?.usd || 0;
+                  const prevPrice = index === 0 ? currentPriceValue : prediction.predictions[index - 1].price;
+                  const diff = item.price - prevPrice;
+                  const percentChange = ((diff / prevPrice) * 100).toFixed(2);
+                  
+                  const isUp = diff > 0.00001;
+                  const isDown = diff < -0.00001;
+
+                  return (
+                    <tr key={index} className="bg-gray-900/40 border border-gray-800 hover:bg-gray-800/50 transition-colors group">
+                      <td className="px-6 py-5 rounded-l-2xl text-indigo-400 font-black">
+                        #{index + 1}
+                      </td>
+                      <td className="px-6 py-5 text-gray-400">
+                        {new Date(item.date).toLocaleDateString('uk-UA')}
+                      </td>
+                      <td className="px-6 py-5 text-gray-100 text-lg">
+                        ${item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td className={`px-6 py-5 rounded-r-2xl text-right ${isUp ? 'text-green-400' : isDown ? 'text-red-400' : 'text-gray-500'}`}>
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-xs uppercase font-black px-2 py-1 bg-black/20 rounded">
+                            {isUp ? 'Bullish' : isDown ? 'Bearish' : 'Stable'}
+                          </span>
+                          <span className="min-w-[70px]">
+                            {isUp ? '▲' : isDown ? '▼' : '●'} {percentChange}%
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Market Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           { label: 'Капіталізація', val: `$${data?.market_data?.market_cap?.usd?.toLocaleString()}`, icon: <Info className="w-4 h-4"/> },
           { label: 'В обігу', val: data?.market_data?.circulating_supply?.toLocaleString(), icon: <Layers className="w-4 h-4"/> },
           { label: 'ATH', val: `$${data?.market_data?.ath?.usd?.toLocaleString()}`, icon: <Target className="w-4 h-4"/> }
         ].map((s, i) => (
-          <div key={i} className="bg-[#161B22]/40 border border-gray-800 p-8 rounded-[2rem] flex items-center gap-5">
+          <div key={i} className="bg-[#161B22]/40 border border-gray-800 p-8 rounded-[2rem] flex items-center gap-5 shadow-lg">
             <div className="p-3 bg-gray-800 rounded-xl text-gray-500">{s.icon}</div>
             <div>
-              <p className="text-[10px] text-gray-500 font-black uppercase">{s.label}</p>
+              <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">{s.label}</p>
               <p className="text-xl font-mono font-bold text-gray-100">{s.val}</p>
             </div>
           </div>
