@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef, useImperativeHandle, useRef, useMemo } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -9,105 +9,160 @@ import {
   Tooltip,
   Filler,
 } from 'chart.js';
+import zoomPlugin from 'chartjs-plugin-zoom';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, zoomPlugin);
 
 interface ChartProps {
-  prices: any[]; // [[ms, price], ...]
-  calcData: any; // Об'єкт { predictions: [{date, price}, ...], ... }
+  prices: any[];
+  calcData: any;
 }
 
-const ChartCanvas: React.FC<ChartProps> = ({ prices, calcData }) => {
-  if (!prices || prices.length === 0) return null;
+const ChartCanvas = forwardRef((props: ChartProps, ref) => {
+  const { prices, calcData } = props;
+  const chartInternalRef = useRef<any>(null);
 
-  // 1. Дістаємо масив прогнозів
-  const predictions = calcData?.predictions || [];
+  useImperativeHandle(ref, () => ({
+    resetZoom: () => {
+      if (chartInternalRef.current) chartInternalRef.current.resetZoom();
+    }
+  }));
 
-  // 2. Формуємо мітки (Labels)
-  // Спочатку мітки для історії
-  const historyLabels = prices.map(p => 
-    new Date(p[0]).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })
-  );
-  
-  // Потім додаємо мітки з прогнозів
-  const forecastLabels = predictions.map((p: any) => 
-    new Date(p.date).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })
-  );
+  // Обчислюємо ліміти для осей
+  const chartLimits = useMemo(() => {
+    if (!prices.length) return null;
+    
+    const allX = prices.map(p => p[0]);
+    const allY = prices.map(p => p[1]);
 
-  const allLabels = [...historyLabels, ...forecastLabels];
+    if (calcData?.predictions) {
+      calcData.predictions.forEach((p: any) => {
+        allX.push(new Date(p.date).getTime());
+        allY.push(p.price);
+      });
+    }
+    
+    return {
+      x: { min: Math.min(...allX), max: Math.max(...allX) },
+      y: { min: Math.min(...allY) * 0.95, max: Math.max(...allY) * 1.05 }
+    };
+  }, [prices, calcData]);
 
-  // 3. Формуємо Dataset історії
-  const historyPrices = prices.map(p => p[1]);
-  // Заповнюємо кінець null-ами, щоб звільнити місце під прогноз на шкалі X
-  const historyDataset = [...historyPrices, ...new Array(predictions.length).fill(null)];
+  // Підготовка даних для графіка
+  const data = useMemo(() => {
+    const mainColor = '#6366f1'; 
+    const forecastColor = '#fb923c'; 
 
-  // 4. Формуємо Dataset прогнозу
-  // Він має початися рівно там, де закінчилася історія
-  const forecastPrices = predictions.map((p: any) => p.price);
-  const forecastDataset = new Array(historyPrices.length - 1).fill(null);
-  
-  forecastDataset.push(historyPrices[historyPrices.length - 1]); // З'єднувальна точка
-  forecastDataset.push(...forecastPrices);
-
-  const data = {
-    labels: allLabels,
-    datasets: [
+    const datasets: any[] = [
       {
         label: 'Історія',
-        data: historyDataset,
-        borderColor: '#6366f1',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)',
-        fill: true,
+        data: prices.map((p: any) => ({ x: p[0], y: p[1] })),
+        borderColor: mainColor,
+        borderWidth: 2,
         tension: 0.4,
         pointRadius: 0,
-        borderWidth: 2,
-      },
-      {
-        label: 'AI Прогноз',
-        data: forecastDataset,
-        borderColor: '#fb923c', // Помаранчевий
-        borderDash: [5, 5],
-        backgroundColor: 'rgba(251, 146, 60, 0.05)',
         fill: true,
-        tension: 0.4,
-        pointRadius: 4,
-        pointBackgroundColor: '#fb923c',
-        borderWidth: 2,
-      },
-    ],
-  };
+        backgroundColor: (context: any) => {
+          const chart = context.chart;
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return 'transparent';
+          const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0, 'rgba(99, 102, 241, 0.2)');
+          gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+          return gradient;
+        },
+      }
+    ];
 
-  const options = {
+    if (calcData?.predictions?.length > 0 && prices.length > 0) {
+      const lastHistoryPoint = prices[prices.length - 1];
+      const forecastPoints = [
+        { x: lastHistoryPoint[0], y: lastHistoryPoint[1] },
+        ...calcData.predictions.map((p: any) => ({
+          x: new Date(p.date).getTime(),
+          y: p.price
+        }))
+      ];
+
+      datasets.push({
+        label: 'AI Прогноз',
+        data: forecastPoints,
+        borderColor: forecastColor,
+        borderWidth: 2,
+        borderDash: [6, 4],
+        tension: 0.4,
+        pointRadius: (ctx: any) => ctx.dataIndex === 0 ? 0 : 3,
+        pointBackgroundColor: forecastColor,
+        fill: true,
+        backgroundColor: (context: any) => {
+          const chart = context.chart;
+          const { ctx, chartArea } = chart;
+          if (!chartArea) return 'transparent';
+          const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0, 'rgba(251, 146, 60, 0.15)');
+          gradient.addColorStop(1, 'rgba(251, 146, 60, 0)');
+          return gradient;
+        },
+      });
+    }
+
+    return { datasets };
+  }, [prices, calcData]);
+
+  // Безпечні значення для TypeScript
+  const xMin = chartLimits?.x.min ?? 0;
+  const xMax = chartLimits?.x.max ?? 0;
+  const yMin = chartLimits?.y.min ?? 0;
+  const yMax = chartLimits?.y.max ?? 0;
+
+  const options: any = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
+      zoom: {
+        limits: {
+          x: { 
+            min: xMin, 
+            max: xMax, 
+            minRange: (xMax - xMin) / 10 
+          },
+          y: { min: yMin, max: yMax }
+        },
+        zoom: {
+          wheel: { enabled: true },
+          pinch: { enabled: true },
+          mode: 'x',
+        },
+        pan: { enabled: true, mode: 'x' }
+      },
       legend: { display: false },
       tooltip: {
-        mode: 'index' as const,
+        mode: 'index',
         intersect: false,
         backgroundColor: '#161B22',
-        titleColor: '#9ca3af',
-        bodyColor: '#ffffff',
+        padding: 12,
         borderColor: '#374151',
         borderWidth: 1,
+        callbacks: {
+          label: (context: any) => ` $${context.parsed.y.toLocaleString()}`
+        }
       }
     },
     scales: {
-      x: {
-        grid: { display: false },
-        ticks: { color: '#4b5563', maxTicksLimit: 10 }
+      x: { 
+        type: 'linear', 
+        display: false,
+        min: xMin,
+        max: xMax
       },
       y: {
-        grid: { color: 'rgba(75, 85, 99, 0.1)' },
-        ticks: { 
-          color: '#4b5563',
-          callback: (value: any) => '$' + value.toLocaleString()
-        }
+        grid: { color: 'rgba(255, 255, 255, 0.03)', drawBorder: false },
+        ticks: { color: '#4b5563', font: { size: 10 } }
       }
     }
   };
 
-  return <Line data={data} options={options} />;
-};
+  return <Line ref={chartInternalRef} data={data} options={options} />;
+});
 
 export default ChartCanvas;

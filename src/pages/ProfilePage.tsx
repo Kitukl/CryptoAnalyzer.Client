@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Card, Avatar, Typography, Button, Input, Spin, message, Upload, Tag, Space, Pagination } from 'antd';
+import { Card, Avatar, Typography, Button, Input, Spin, message, Upload, Tag, Space, Pagination, Select } from 'antd';
 import { 
   UserOutlined, MailOutlined, CameraOutlined, 
   SaveOutlined, EditOutlined, CloseOutlined,
   CheckCircleFilled, EyeOutlined, EyeInvisibleOutlined,
-  PlusOutlined, DeleteOutlined, SearchOutlined
+  PlusOutlined, DeleteOutlined, SearchOutlined,
+  CalendarOutlined
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api/axios';
@@ -12,6 +13,7 @@ import CreateHoldingModal from '../components/CreateComponentModal';
 import axios from 'axios';
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 const ProfilePage = () => {
   const [user, setUser] = useState<any>(null);
@@ -22,6 +24,7 @@ const ProfilePage = () => {
   const [holdings, setHoldings] = useState<any[]>([]);
   const [searchText, setSearchText] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [predictDays, setPredictDays] = useState(7); // Новий стан для днів
   const pageSize = 4;
 
   const [isHoldingModalVisible, setIsHoldingModalVisible] = useState(false);
@@ -34,8 +37,12 @@ const ProfilePage = () => {
 
   useEffect(() => {
     fetchProfile();
-    fetchHoldings();
   }, []);
+
+  // Викликаємо fetchHoldings при завантаженні та при зміні кількості днів
+  useEffect(() => {
+    fetchHoldings(predictDays);
+  }, [predictDays]);
 
   const fetchProfile = async () => {
     try {
@@ -50,12 +57,14 @@ const ProfilePage = () => {
     }
   };
 
-  const fetchHoldings = async () => {
+  const fetchHoldings = async (days: number) => {
     try {
-      const res = await axios.get('http://localhost:5094/api/Holdings');
+      // Використовуємо новий роут з параметром днів
+      const res = await axios.get(`http://localhost:5094/api/Holdings/${days}`);
       setHoldings(res.data);
     } catch (err) {
       console.error("Помилка завантаження холдингів");
+      message.error("Не вдалося завантажити дані прогнозів");
     }
   };
 
@@ -80,7 +89,7 @@ const ProfilePage = () => {
     try {
       await axios.delete(`http://localhost:5094/api/Holdings/${id}`);
       message.success("Актив видалено");
-      fetchHoldings();
+      fetchHoldings(predictDays);
     } catch (err) {
       message.error("Не вдалося видалити актив");
     }
@@ -137,7 +146,6 @@ const ProfilePage = () => {
 
   return (
     <div className="flex-1 min-h-screen bg-[#0b0f1a] p-6 md:p-12 overflow-y-auto relative">
-      {/* Декоративні блюри */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-72 h-72 bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
 
@@ -223,13 +231,25 @@ const ProfilePage = () => {
           <Title level={3} className="!text-white !mb-0">Мої активи</Title>
           
           <div className="flex gap-3 w-full md:w-auto">
+            <Select
+              defaultValue={7}
+              style={{ width: 140 }}
+              onChange={(val) => setPredictDays(val)}
+              className="custom-select"
+              suffixIcon={<CalendarOutlined className="text-blue-500" />}
+            >
+              <Option value={3}>3 дні</Option>
+              <Option value={7}>7 днів</Option>
+              <Option value={14}>14 днів</Option>
+            </Select>
+
             <Input 
-              placeholder="Пошук монети..." 
+              placeholder="Пошук..." 
               prefix={<SearchOutlined className="text-gray-500" />}
-              className="bg-[#141414] border-gray-800 text-white rounded-xl w-full md:w-64"
+              className="bg-[#141414] border-gray-800 text-white rounded-xl w-full md:w-48"
               onChange={(e) => {
                 setSearchText(e.target.value);
-                setCurrentPage(1); // Скидаємо на першу сторінку при пошуку
+                setCurrentPage(1);
               }}
             />
             <Button 
@@ -238,7 +258,7 @@ const ProfilePage = () => {
                 setEditingHolding(null);
                 setIsHoldingModalVisible(true);
               }} 
-              className="bg-blue-600 rounded-xl border-none min-w-[100px]"
+              className="bg-blue-600 rounded-xl border-none"
             >
               Додати
             </Button>
@@ -255,62 +275,72 @@ const ProfilePage = () => {
               <Card 
                 key={holding.id}
                 className="bg-[#141414]/90 border-gray-800 rounded-2xl hover:border-blue-500/50 transition-colors"
-                bodyStyle={{ padding: '16px 24px' }}
+                bodyStyle={{ padding: '20px' }}
               >
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Avatar src={holding.coin?.image} size="small" />
                       <Text className="text-white font-bold text-lg">{holding.coin?.name}</Text>
                       <Tag className="bg-gray-800 border-none text-gray-400 rounded-md uppercase text-[10px]">{holding.coin?.symbol}</Tag>
                     </div>
                     
                     <div className="flex flex-col gap-4 p-4 rounded-xl bg-slate-900/20 border border-slate-800/50 text-sm">
-                    <div className="flex items-center justify-between border-b border-slate-800/50 pb-3">
-                      <div>
-                        <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider mb-1">Кількість активів</span>
-                        <span className="text-blue-400 font-mono text-lg font-semibold tracking-tight">
-                          ${holding.quantity.toLocaleString()} <span className="text-xs text-slate-500 uppercase">{holding.symbol}</span>
-                        </span>
+                      <div className="flex items-center justify-between border-b border-slate-800/50 pb-3">
+                        <div>
+                          <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider mb-1">Ваш Баланс</span>
+                          <span className="text-blue-400 font-mono text-lg font-semibold tracking-tight">
+                            {holding.quantity.toLocaleString()} <span className="text-xs text-slate-500 uppercase">{holding.coin?.symbol}</span>
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider mb-1">Загальна вартість</span>
+                          <span className="text-white font-mono text-lg font-bold">
+                            ${(holding.quantity * holding.currentPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4 py-1">
-                      <div>
-                        <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider mb-1 text-center">Закупка</span>
-                        <span className="text-blue-300 font-mono block text-center">
-                          ${holding.pricePerUnit < 0.01 ? holding.pricePerUnit.toFixed(6) : holding.pricePerUnit.toLocaleString()}
-                        </span>
+
+                      <div className="flex justify-evenly gap-4 py-1">
+                        <div>
+                          <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider mb-1 text-center">Ціна закупівлі</span>
+                          <span className="text-blue-300 font-mono block text-center">
+                            ${holding.pricePerUnit < 0.1 ? holding.pricePerUnit.toFixed(4) : holding.pricePerUnit.toLocaleString()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-purple-400/80 block text-[10px] uppercase font-bold tracking-wider mb-1 text-center">Прогноз ({predictDays}д)</span>
+                          <span className="text-purple-400 font-mono block text-center">
+                            ${holding.predictedPrice < 0.1 ? holding.predictedPrice.toFixed(4) : holding.predictedPrice.toLocaleString()}
+                          </span>
+                        </div>
                       </div>
-                      <div className="border-x border-slate-800/50">
-                        <span className="text-gray-500 block text-[10px] uppercase font-bold tracking-wider mb-1 text-center">Поточна</span>
-                        <span className="text-white font-mono block text-center font-bold">
-                          ${holding.currentPrice < 0.01 ? holding.currentPrice.toFixed(6) : holding.currentPrice.toLocaleString()}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-purple-400/80 block text-[10px] uppercase font-bold tracking-wider mb-1 text-center">Prophet Forecast</span>
-                        <span className="text-purple-400 font-mono block text-center">
-                          ${holding.predictedPrice < 0.01 ? holding.predictedPrice.toFixed(6) : holding.predictedPrice.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 pt-3 border-t border-slate-800/50">
-                      <div className="flex-1 bg-slate-800/30 p-2 rounded-lg text-center border border-slate-700/30">
-                        <span className="text-gray-500 block text-[9px] uppercase font-bold mb-1">Поточний профіт</span>
-                        <span className={`font-mono text-base font-bold ${holding.currentProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {holding.currentProfit >= 0 ? '▲' : '▼'} {Math.abs(holding.currentProfit)?.toFixed(2)}%
-                        </span>
-                      </div>
-                      <div className="flex-1 bg-purple-900/10 p-2 rounded-lg text-center border border-purple-500/20">
-                        <span className="text-purple-400/60 block text-[9px] uppercase font-bold mb-1">Очікуваний профіт</span>
-                        <span className={`font-mono text-base font-bold ${holding.predictedProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {holding.predictedProfit >= 0 ? '▲' : '▼'} {Math.abs(holding.predictedProfit)?.toFixed(2)}%
-                        </span>
+
+                      <div className="flex gap-2 pt-3 border-t border-slate-800/50">
+                        <div className="flex-1 bg-slate-800/30 p-2 rounded-lg text-center border border-slate-700/30">
+                          <span className="text-gray-500 block text-[9px] uppercase font-bold mb-1">Поточний прибуток</span>
+                          <div className={`font-mono text-sm font-bold ${holding.currentProfit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            ${holding.currentProfitQuantity?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            <span className="block text-[11px] opacity-80">
+                               {holding.currentProfit >= 0 ? '+' : ''}{holding.currentProfit.toLocaleString(undefined, { maximumFractionDigits: 2 })}%
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex-1 bg-purple-900/10 p-2 rounded-lg text-center border border-purple-500/20">
+                          <span className="text-purple-400/60 block text-[9px] uppercase font-bold mb-1">Прогнозований прибуток</span>
+                          <div className={`font-mono text-sm font-bold ${holding.predictedProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                             ${holding.predictedProfitQuantity?.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            <span className="block text-[11px] opacity-80">
+                              {holding.predictedProfit >= 0 ? '+' : ''}{holding.predictedProfit.toLocaleString(undefined, { maximumFractionDigits: 2 })}%
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  </div>
-    
-                  <Space>
+
+                  <Space direction="vertical" style={{ marginLeft: '16px' }}>
                     <Button 
                       type="text" 
                       icon={<EditOutlined className="text-blue-400" />} 
@@ -354,11 +384,24 @@ const ProfilePage = () => {
         onSuccess={() => {
           setIsHoldingModalVisible(false);
           setEditingHolding(null);
-          fetchHoldings();
+          fetchHoldings(predictDays);
         }}
       />
 
       <style>{`
+        .custom-select .ant-select-selector {
+          background-color: #141414 !important;
+          border-color: #1f2937 !important;
+          color: white !important;
+          border-radius: 12px !important;
+        }
+        .ant-select-dropdown {
+          background-color: #141414 !important;
+          border: 1px solid #1f2937;
+        }
+        .ant-select-item { color: rgba(255,255,255,0.7) !important; }
+        .ant-select-item-option-selected { background-color: #2563eb !important; color: white !important; }
+        
         .custom-pagination .ant-pagination-item a { color: #6b7280; }
         .custom-pagination .ant-pagination-item-active { background: transparent; border-color: #2563eb; }
         .custom-pagination .ant-pagination-item-active a { color: #3b82f6 !important; }
